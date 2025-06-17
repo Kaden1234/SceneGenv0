@@ -57,97 +57,107 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
   <script>
-    const map = L.map('map').setView([39.5, -98.35], 5);
+  const map = L.map('map').setView([39.5, -98.35], 5);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
 
-    // Feature Group to hold editable layers
-    const drawnItems = new L.FeatureGroup().addTo(map);
+  // Feature Group for shapes
+  const drawnItems = new L.FeatureGroup().addTo(map);
 
-    // Initialize the Leaflet Draw Control but without draw tools visible initially
-    const drawControl = new L.Control.Draw({
-      draw: {
-        polygon: false,
-        polyline: false,
-        circle: false,
-        marker: false,
-        circlemarker: false,
-        rectangle: {
-          shapeOptions: { color: 'blue' }
-        }
-      },
-      edit: {
-        featureGroup: drawnItems,
-        edit: true,
-        remove: false  // We control erase with our own button
+  // Edit control (always present)
+  const editControl = new L.Control.Draw({
+    draw: false,
+    edit: {
+      featureGroup: drawnItems,
+      edit: true,
+      remove: false
+    }
+  });
+  map.addControl(editControl);
+
+  // Draw control (toggle via button)
+  const drawControl = new L.Control.Draw({
+    draw: {
+      rectangle: { shapeOptions: { color: 'blue' } },
+      polygon: false, polyline: false, circle: false,
+      marker: false, circlemarker: false
+    },
+    edit: false
+  });
+  let drawingActive = false;
+
+  const drawToggleBtn = document.getElementById('drawToggleBtn');
+  const eraseBtn = document.getElementById('eraseBtn');
+  const exportBtn = document.getElementById('exportBtn');
+
+  drawToggleBtn.onclick = () => {
+    if (!drawingActive) {
+      map.addControl(drawControl);
+      drawToggleBtn.classList.add('active');
+    } else {
+      map.removeControl(drawControl);
+      drawToggleBtn.classList.remove('active');
+    }
+    drawingActive = !drawingActive;
+  };
+
+  map.on(L.Draw.Event.CREATED, function (e) {
+    drawnItems.addLayer(e.layer);
+    // turn off draw mode after creation
+    if (drawingActive) {
+      map.removeControl(drawControl);
+      drawToggleBtn.classList.remove('active');
+      drawingActive = false;
+    }
+  });
+
+  // Erase All
+  eraseBtn.onclick = () => drawnItems.clearLayers();
+
+  // Export with corners, center, area
+  exportBtn.onclick = () => {
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+      alert('Draw some rectangles first.');
+      return;
+    }
+    const exportArray = [];
+    layers.forEach(layer => {
+      if (layer instanceof L.Rectangle) {
+        const bounds = layer.getBounds();
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        const nw = L.latLng(bounds.getNorth(), bounds.getWest());
+        const se = L.latLng(bounds.getSouth(), bounds.getEast());
+        const center = bounds.getCenter();
+        const widthMeters = sw.distanceTo(se);
+        const heightMeters = sw.distanceTo(nw);
+        const areaM2 = widthMeters * heightMeters;
+        exportArray.push({
+          type: "rectangle",
+          corners: {
+            northWest: [nw.lat, nw.lng],
+            northEast: [ne.lat, ne.lng],
+            southWest: [sw.lat, sw.lng],
+            southEast: [se.lat, se.lng]
+          },
+          center: [center.lat, center.lng],
+          areaSquareMeters: areaM2
+        });
+      } else if (layer instanceof L.Polygon) {
+        const coords = layer.getLatLngs().flat(Infinity).map(ll => [ll.lat, ll.lng]);
+        exportArray.push({ type: "polygon", coordinates: coords });
       }
     });
-
-    // Add drawControl only when drawing mode is active
-    let drawingActive = false;
-
-    const drawToggleBtn = document.getElementById('drawToggleBtn');
-    const eraseBtn = document.getElementById('eraseBtn');
-    const exportBtn = document.getElementById('exportBtn');
-
-    // Toggle draw mode on button click
-    drawToggleBtn.onclick = () => {
-      if (!drawingActive) {
-        map.addControl(drawControl);
-        drawToggleBtn.classList.add('active');
-      } else {
-        map.removeControl(drawControl);
-        drawToggleBtn.classList.remove('active');
-      }
-      drawingActive = !drawingActive;
-    };
-
-    // When a shape is drawn, add it to drawnItems and disable draw mode
-    map.on(L.Draw.Event.CREATED, function (e) {
-      const layer = e.layer;
-      drawnItems.addLayer(layer);
-      if (drawingActive) {
-        map.removeControl(drawControl);
-        drawToggleBtn.classList.remove('active');
-        drawingActive = false;
-      }
-    });
-
-    // Erase button clears all drawn shapes
-    eraseBtn.onclick = () => {
-      drawnItems.clearLayers();
-    };
-
-    // Export button outputs GeoJSON bounds or polygon coords
-    exportBtn.onclick = () => {
-      if (drawnItems.getLayers().length === 0) {
-        alert('Draw some shapes first!');
-        return;
-      }
-
-      const data = [];
-
-      drawnItems.eachLayer(layer => {
-        // Support rectangles and polygons
-        if (layer instanceof L.Rectangle || layer instanceof L.Polygon) {
-          const coords = layer.getLatLngs();
-
-          // Flatten latlngs to simple array of [lat, lng]
-          const points = coords.flat(Infinity).map(latlng => [latlng.lat, latlng.lng]);
-
-          data.push(points);
-        }
-      });
-
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'map_export.json';
-      a.click();
-    };
-  </script>
+    const blob = new Blob([JSON.stringify(exportArray, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'map_export.json';
+    a.click();
+  };
+</script>
 </body>
 </html>
