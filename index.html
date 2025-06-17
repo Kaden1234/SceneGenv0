@@ -2,175 +2,152 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Roblox Map Exporter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roblox Scenery Map Exporter</title>
 
-  <!-- ✅ Leaflet CSS (CDN, no integrity check) -->
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
+  />
+  <!-- Leaflet Draw CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
   />
 
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      height: 100%;
       font-family: sans-serif;
-    }
-
-    h2 {
-      margin: 10px;
       text-align: center;
     }
 
     #map {
       width: 100%;
-      height: 85vh;
-      border: 1px solid #ccc;
-    }
-
-    .controls {
-      text-align: center;
-      margin: 10px;
+      height: 80vh;
+      margin-bottom: 10px;
     }
 
     button {
-      padding: 10px 16px;
+      padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
+      margin: 5px;
+    }
+
+    button.active {
+      background-color: #007bff;
+      color: white;
     }
   </style>
 </head>
 <body>
   <h2>Roblox Scenery Map Exporter</h2>
+
+  <button id="drawToggleBtn">✏️ Draw Rectangle</button>
+  <button id="eraseBtn">🗑️ Erase All</button>
+  <button id="exportBtn">📤 Export Map Data</button>
+
   <div id="map"></div>
-  <div class="controls">
-    <button onclick="exportData()">Export Map Data</button>
-  </div>
 
-  <!-- ✅ Load Leaflet JS FIRST -->
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  crossorigin=""
-></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Draw JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
-<!-- ✅ Your actual map logic -->
-<script>
-  // 🌎 Init map
-  const map = L.map('map').setView([39.5, -98.35], 5);
-  setTimeout(() => map.invalidateSize(), 200);
+  <script>
+    const map = L.map('map').setView([39.5, -98.35], 5);
 
-  // 🗺️ Load tile layer
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
-  }).addTo(map);
-
-  // 🖊️ Drag-to-draw logic
-  let drawing = false;
-  let boxLayer = null;
-  let startLatLng = null;
-
-  map.on('mousedown', (e) => {
-    drawing = true;
-    startLatLng = e.latlng;
-    if (boxLayer) {
-      map.removeLayer(boxLayer);
-      boxLayer = null;
-    }
-  });
-
-  map.on('mousemove', (e) => {
-    if (!drawing || !startLatLng) return;
-
-    const bounds = L.latLngBounds(startLatLng, e.latlng);
-
-    if (boxLayer) {
-      boxLayer.setBounds(bounds);
-    } else {
-      boxLayer = L.rectangle(bounds, { color: 'blue', weight: 2 }).addTo(map);
-    }
-  });
-
-  map.on('mouseup', () => {
-    drawing = false;
-    startLatLng = null;
-  });
-
-  // 📤 Export
-  function exportData() {
-    if (!boxLayer) {
-      alert("Draw a box on the map first.");
-      return;
-    }
-
-    const bounds = boxLayer.getBounds();
-    const boxCorners = [
-      [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
-      [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
-    ];
-
-    const data = {
-      bounds: boxCorners,
-      elevation: [],
-      water: [],
-      roads: [],
-      buildings: []
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'map_export.json';
-    a.click();
-  }
-</script>
-
-
-<script>
-    const map = L.map('map').setView([39.5, -98.35], 5); // Center on U.S.
-
-    // Make sure this tile layer shows up
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
     }).addTo(map);
 
-    let corners = [];
-    let boxLayer = null;
+    // Feature Group to hold editable layers
+    const drawnItems = new L.FeatureGroup().addTo(map);
 
-    map.on('click', function (e) {
-      if (corners.length < 2) {
-        corners.push([e.latlng.lat, e.latlng.lng]);
-        if (corners.length === 2) {
-          if (boxLayer) map.removeLayer(boxLayer);
-          boxLayer = L.rectangle([corners[0], corners[1]], { color: 'blue', weight: 2 }).addTo(map);
+    // Initialize the Leaflet Draw Control but without draw tools visible initially
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polygon: false,
+        polyline: false,
+        circle: false,
+        marker: false,
+        circlemarker: false,
+        rectangle: {
+          shapeOptions: { color: 'blue' }
         }
+      },
+      edit: {
+        featureGroup: drawnItems,
+        edit: true,
+        remove: false  // We control erase with our own button
       }
     });
 
-    function exportData() {
-      if (corners.length !== 2) {
-        alert("Click two corners on the map first.");
+    // Add drawControl only when drawing mode is active
+    let drawingActive = false;
+
+    const drawToggleBtn = document.getElementById('drawToggleBtn');
+    const eraseBtn = document.getElementById('eraseBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    // Toggle draw mode on button click
+    drawToggleBtn.onclick = () => {
+      if (!drawingActive) {
+        map.addControl(drawControl);
+        drawToggleBtn.classList.add('active');
+      } else {
+        map.removeControl(drawControl);
+        drawToggleBtn.classList.remove('active');
+      }
+      drawingActive = !drawingActive;
+    };
+
+    // When a shape is drawn, add it to drawnItems and disable draw mode
+    map.on(L.Draw.Event.CREATED, function (e) {
+      const layer = e.layer;
+      drawnItems.addLayer(layer);
+      if (drawingActive) {
+        map.removeControl(drawControl);
+        drawToggleBtn.classList.remove('active');
+        drawingActive = false;
+      }
+    });
+
+    // Erase button clears all drawn shapes
+    eraseBtn.onclick = () => {
+      drawnItems.clearLayers();
+    };
+
+    // Export button outputs GeoJSON bounds or polygon coords
+    exportBtn.onclick = () => {
+      if (drawnItems.getLayers().length === 0) {
+        alert('Draw some shapes first!');
         return;
       }
 
-      const data = {
-        bounds: corners,
-        elevation: [],
-        water: [],
-        roads: [],
-        buildings: []
-      };
+      const data = [];
+
+      drawnItems.eachLayer(layer => {
+        // Support rectangles and polygons
+        if (layer instanceof L.Rectangle || layer instanceof L.Polygon) {
+          const coords = layer.getLatLngs();
+
+          // Flatten latlngs to simple array of [lat, lng]
+          const points = coords.flat(Infinity).map(latlng => [latlng.lat, latlng.lng]);
+
+          data.push(points);
+        }
+      });
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'map_export.json';
       a.click();
-    }
+    };
   </script>
 </body>
 </html>
