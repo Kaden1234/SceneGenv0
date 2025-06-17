@@ -50,17 +50,25 @@
     <button onclick="exportData()">Export Map Data</button>
   </div>
 
-  <!-- Leaflet JS (CDN) -->
-  <!-- ✅ Leaflet JS (CDN, no integrity) -->
+  <!-- ✅ Load Leaflet JS FIRST -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  crossorigin=""
+></script>
+
+<!-- ✅ Your actual map logic -->
 <script>
+  // 🌎 Init map
   const map = L.map('map').setView([39.5, -98.35], 5);
   setTimeout(() => map.invalidateSize(), 200);
 
+  // 🗺️ Load tile layer
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19
   }).addTo(map);
 
+  // 🖊️ Drag-to-draw logic
   let drawing = false;
   let boxLayer = null;
   let startLatLng = null;
@@ -68,7 +76,6 @@
   map.on('mousedown', (e) => {
     drawing = true;
     startLatLng = e.latlng;
-
     if (boxLayer) {
       map.removeLayer(boxLayer);
       boxLayer = null;
@@ -92,6 +99,7 @@
     startLatLng = null;
   });
 
+  // 📤 Export
   function exportData() {
     if (!boxLayer) {
       alert("Draw a box on the map first.");
