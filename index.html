@@ -1,20 +1,100 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!-- Leaflet Draw -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-  <title>Map Exporter for Roblox</title>
-  <meta charset="utf-8" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roblox Map Exporter</title>
+
+  <!-- Leaflet CSS from CDN -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha512-sA+ePnp5yW5xZlKY/X5n1g4X5oX+z1DZnR5V7Plt7T1Vjkq6w2GzWrIFRVN9xO2S6dQa1X7MgEBU9U10ssHsbg=="
+    crossorigin=""
+  />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 10px;
+    }
+
+    #map {
+      width: 100%;
+      height: 80vh;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
   <h2>Roblox Scenery Map Exporter</h2>
+  <p>Click two corners on the map to draw a box, then export</p>
   <div id="map"></div>
   <button onclick="exportData()">Export Map Data</button>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="script.js"></script>
+  <!-- Leaflet JS from CDN -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha512-mKxYvO+nVOBh5FuQ0d2KJ97K+YoxWFlDZu3CgGLYc9oAxufbD9QdC8T8m7DCkM1ovRH7P7+oKJtR6bMznEZXAg=="
+    crossorigin=""
+  ></script>
+
+  <script>
+    let map = L.map('map').setView([39.5, -98.35], 5); // Center on U.S.
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let box = null;
+    let corners = [];
+
+    map.on('click', function (e) {
+      if (corners.length < 2) {
+        corners.push([e.latlng.lat, e.latlng.lng]);
+        if (corners.length === 2) {
+          drawBox();
+        }
+      }
+    });
+
+    function drawBox() {
+      if (box) map.removeLayer(box);
+      box = L.rectangle([corners[0], corners[1]], { color: "blue", weight: 2 }).addTo(map);
+    }
+
+    function exportData() {
+      if (corners.length !== 2) {
+        alert("Click two corners on the map first.");
+        return;
+      }
+
+      let exportObj = {
+        bounds: corners,
+        elevation: [],   // To be filled later
+        water: [],       // To be filled later
+        roads: [],
+        buildings: []
+      };
+
+      let blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      let a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'map_export.json';
+      a.click();
+    }
+  </script>
 </body>
 </html>
