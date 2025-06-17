@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Roblox Map Exporter</title>
 
-  <!-- Leaflet CSS (CDN) -->
+  <!-- ✅ Leaflet CSS (CDN, no integrity check) -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha512-sA+ePnp5yW5xZlKY/X5n1g4X5oX+z1DZnR5V7Plt7T1Vjkq6w2GzWrIFRVN9xO2S6dQa1X7MgEBU9U10ssHsbg=="
     crossorigin=""
   />
 
@@ -52,11 +51,12 @@
   </div>
 
   <!-- Leaflet JS (CDN) -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha512-mKxYvO+nVOBh5FuQ0d2KJ97K+YoxWFlDZu3CgGLYc9oAxufbD9QdC8T8m7DCkM1ovRH7P7+oKJtR6bMznEZXAg=="
-    crossorigin=""
-  ></script>
+  <!-- ✅ Leaflet JS (CDN, no integrity) -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  crossorigin=""
+></script>
+
 
   <script>
     const map = L.map('map').setView([39.5, -98.35], 5); // Center on U.S.
